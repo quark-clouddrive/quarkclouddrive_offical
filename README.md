@@ -13,7 +13,7 @@ Compatible with Claude Code · Cursor · Codex CLI · Gemini CLI · OpenClaw · 
 ## 一键安装
 
 ```bash
-bash install.sh
+npx skills add https://github.com/quark-clouddrive/quarkclouddrive_offical/skills --skill quarkclouddrive
 ```
 
 首次使用时，Skill 会自动引导完成 CLI 工具安装和夸克网盘登录授权。

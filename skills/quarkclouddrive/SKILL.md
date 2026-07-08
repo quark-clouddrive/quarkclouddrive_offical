@@ -1,7 +1,11 @@
-<!-- qk-skill-version: 1.0.3 -->
 ---
 name: quarkclouddrive
-description: 夸克网盘官方(Quark Drive)Skill，用于文件上传/下载（支持断点续传）、文件分享与转存、网盘文件搜索、相册整理、AI助手（文件总结与知识问答，支持万级文件）。当用户需要操作夸克网盘文件或进行身份验证时使用。
+version: 1.0.3
+description: >-
+  夸克网盘官方(Quark Drive)Skill — 文件上传/下载（支持断点续传）、文件分享与转存、网盘文件搜索、相册整理、AI助手（文件总结与知识问答，支持万级文件）。
+  TRIGGER: 用户提及"夸克网盘/quark drive/网盘/云盘"并涉及文件操作；
+           或用户提及相册整理、照片整理、文件搜索、文件总结/分析/问答等操作。
+  DO NOT TRIGGER: 非文件存储操作，或使用其他云盘服务时；本地文件整理/清理操作；与网盘无关的图片编辑或 PPT 生成操作。
 metadata:
   openclaw:
     emoji: "☁️"
@@ -9,7 +13,8 @@ metadata:
       bins: ["node"]
 ---
 
-# Quark Drive CLI
+
+# Quark Drive 官方 Skill
 
 夸克网盘命令行工具，通过夸克开放平台 API 操作网盘。
 
