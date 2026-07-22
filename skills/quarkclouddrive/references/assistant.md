@@ -39,7 +39,7 @@
 对指定文件进行内容总结。
 
 ```bash
-quarkclouddrive summary --query <QUERY> [--fid-list <FID1,FID2,...>]
+node scripts/quark-drive.cjs summary --query <QUERY> [--fid-list <FID1,FID2,...>]
 ```
 
 | 参数 | 类型 | 必填 | 说明 |
@@ -54,7 +54,7 @@ quarkclouddrive summary --query <QUERY> [--fid-list <FID1,FID2,...>]
 基于指定文件进行知识问答。
 
 ```bash
-quarkclouddrive qa --query <QUERY> --fid-list <FID1,FID2,...>
+node scripts/quark-drive.cjs qa --query <QUERY> --fid-list <FID1,FID2,...>
 ```
 
 | 参数 | 类型 | 必填 | 说明 |

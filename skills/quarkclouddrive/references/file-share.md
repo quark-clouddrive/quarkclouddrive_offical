@@ -13,7 +13,7 @@
 #### 入参
 
 ```bash
-quarkclouddrive share <FID1> [FID2...] [--title <TITLE>] [--url-type <NUMBER>] [--expired-type <NUMBER>]
+node scripts/quark-drive.cjs share <FID1> [FID2...] [--title <TITLE>] [--url-type <NUMBER>] [--expired-type <NUMBER>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -99,7 +99,7 @@ quarkclouddrive share <FID1> [FID2...] [--title <TITLE>] [--url-type <NUMBER>] [
 #### 入参
 
 ```bash
-quarkclouddrive share-detail --url <URL> [--page <NUMBER>] [--size <NUMBER>] [--pdir-fid <FID>]
+node scripts/quark-drive.cjs share-detail --url <URL> [--page <NUMBER>] [--size <NUMBER>] [--pdir-fid <FID>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -184,7 +184,7 @@ quarkclouddrive share-detail --url <URL> [--page <NUMBER>] [--size <NUMBER>] [--
 #### 入参
 
 ```bash
-quarkclouddrive share-search --url <URL> --keyword <KEYWORD> [--page <NUMBER>] [--size <NUMBER>]
+node scripts/quark-drive.cjs share-search --url <URL> --keyword <KEYWORD> [--page <NUMBER>] [--size <NUMBER>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |

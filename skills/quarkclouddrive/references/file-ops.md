@@ -51,7 +51,7 @@
 #### 入参
 
 ```bash
-quarkclouddrive create-folder --dir-path <DIR_PATH> [--parent-fid <PDIR_FID>]
+node scripts/quark-drive.cjs create-folder --dir-path <DIR_PATH> [--parent-fid <PDIR_FID>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -109,7 +109,7 @@ quarkclouddrive create-folder --dir-path <DIR_PATH> [--parent-fid <PDIR_FID>]
 #### 入参
 
 ```bash
-quarkclouddrive move <FID1> [FID2...] --target-fid <TARGET_FID>
+node scripts/quark-drive.cjs move <FID1> [FID2...] --target-fid <TARGET_FID>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |

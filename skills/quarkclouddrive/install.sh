@@ -10,18 +10,31 @@ fi
 
 SKILL_CONFIG_URL="${SKILL_OPEN_API_HOST}/agent/v1/skill_config"
 
+IGNORE_INSTALL_CONFIG="false"
+if [ -z "$IGNORE_INSTALL_CONFIG" ] || [[ "$IGNORE_INSTALL_CONFIG" == __*__ ]]; then
+  IGNORE_INSTALL_CONFIG="false"
+fi
+
 ZIP_DOWNLOAD_URL=""
 REMOTE_VERSION=""
 REQUIRED_NODE_MAJOR=16
-INSTALL_DIR="$HOME/.quarkclouddrive"
-TMP_DIR="${TMPDIR:-/tmp}/quarkclouddrive-install-$$"
 
-SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ "$(basename "$SCRIPT_DIR")" = "scripts" ]; then
+  SKILL_DIR="$(dirname "$SCRIPT_DIR")"
+else
+  SKILL_DIR="$SCRIPT_DIR"
+fi
+
+TMP_DIR="$(dirname "$SKILL_DIR")/temp"
 
 IS_UPDATE="false"
-if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/scripts/quark-drive.cjs" ]; then
+if [ -f "$SKILL_DIR/scripts/quark-drive.cjs" ]; then
   IS_UPDATE="true"
 fi
+SCRIPTS_UPDATED="false"
+DOCS_UPDATED="false"
+INSTALL_STEPS_SKIPPED="false"
 
 
 info()  { printf "[info]  %s\n" "$*"; }
@@ -29,32 +42,40 @@ warn()  { printf "[warn]  %s\n" "$*"; }
 error() { printf "[error] %s\n" "$*"; }
 
 
-resolve_install_dir() {
-  if [ -d "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/scripts/quark-drive.cjs" ]; then
-    return 0
-  fi
+remove_legacy_global_command() {
+  info "Step 0: 检查并清理旧版全局命令..."
 
-  local which_result real_path resolved_dir
-  if which_result=$(which quarkclouddrive 2>/dev/null) && [ -n "$which_result" ]; then
-    real_path=$(readlink -f "$which_result" 2>/dev/null || realpath "$which_result" 2>/dev/null || echo "")
-    if [ -n "$real_path" ]; then
-      resolved_dir=$(dirname "$real_path")
-      if [ -f "$resolved_dir/scripts/quark-drive.cjs" ]; then
-        INSTALL_DIR="$resolved_dir"
-        return 0
+  if [ "$OS_TYPE" = "mac" ] || [ "$OS_TYPE" = "linux" ]; then
+    local symlink="/usr/local/bin/quarkclouddrive"
+    if [ -L "$symlink" ] || [ -f "$symlink" ]; then
+      if rm -f "$symlink" 2>/dev/null; then
+        info "  已删除旧版全局命令: $symlink"
+      else
+        warn "  删除旧版全局命令失败（可能需要 sudo 权限）: $symlink"
       fi
+    else
+      info "  未发现旧版全局命令，跳过"
+    fi
+
+  elif [ "$OS_TYPE" = "windows" ]; then
+    local win_usr_bin
+    win_usr_bin=$(cygpath -u "$(cygpath -w /usr/local/bin)" 2>/dev/null || echo "/usr/local/bin")
+    local win_files=(
+      "$win_usr_bin/quarkclouddrive"
+      "$win_usr_bin/quarkclouddrive.cmd"
+      "$win_usr_bin/quarkclouddrive.ps1"
+    )
+    local found=false
+    for f in "${win_files[@]}"; do
+      if [ -f "$f" ] || [ -L "$f" ]; then
+        rm -f "$f" 2>/dev/null && info "  已删除旧版全局命令: $f" || warn "  删除失败: $f"
+        found=true
+      fi
+    done
+    if [ "$found" = "false" ]; then
+      info "  未发现旧版全局命令，跳过"
     fi
   fi
-
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [ -f "$script_dir/scripts/quark-drive.cjs" ]; then
-    INSTALL_DIR="$script_dir"
-    return 0
-  fi
-
-  error "无法定位已有的安装目录"
-  return 1
 }
 
 
@@ -154,22 +175,18 @@ install_node_windows() {
 }
 
 
-get_local_version() {
+get_skill_md_version() {
   local skill_md="$SKILL_DIR/SKILL.md"
   if [ -f "$skill_md" ]; then
-    local md_ver
-    md_ver=$(grep -oE 'qk-skill-version:\s*[0-9]+\.[0-9]+\.[0-9]+' "$skill_md" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-    if [ -n "$md_ver" ]; then
-      printf '%s' "$md_ver"
-      return 0
-    fi
+    grep -oE 'version:[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+' "$skill_md" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
   fi
+}
 
+get_cli_version() {
   local out=""
-  if [ -x "$INSTALL_DIR/quarkclouddrive" ]; then
-    out=$("$INSTALL_DIR/quarkclouddrive" --version 2>/dev/null || true)
-  elif command -v quarkclouddrive &>/dev/null; then
-    out=$(quarkclouddrive --version 2>/dev/null || true)
+  local cli_entry="$SKILL_DIR/scripts/quark-drive.cjs"
+  if [ -f "$cli_entry" ]; then
+    out=$(node "$cli_entry" --version 2>/dev/null || true)
   fi
   printf '%s' "$out" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true
 }
@@ -201,7 +218,7 @@ fetch_skill_config() {
     // 兼容多层结构：{config} / {data:{config}} / {data:{...}} / 裸对象
     const cfg = (j && j.data && j.data.config) || (j && j.config) || (j && j.data) || j || {};
     const ver = cfg.qkPanVersion || "";
-    const url = cfg.qkPan || "";
+    const url = String(cfg.qkPan || "").trim();
     if (!url) process.exit(2);
     process.stdout.write(ver + "\n" + url);
   ' "$resp" 2>/dev/null); then
@@ -212,7 +229,7 @@ fetch_skill_config() {
   REMOTE_VERSION=$(printf '%s' "$parsed" | sed -n '1p')
   ZIP_DOWNLOAD_URL=$(printf '%s' "$parsed" | sed -n '2p')
 
-  if [ -z "$ZIP_DOWNLOAD_URL" ]; then
+  if [[ ! "$ZIP_DOWNLOAD_URL" =~ ^https?://[^[:space:]]+$ ]]; then
     error "skill_config 接口未返回有效的 zip 下载地址"
     return 1
   fi
@@ -242,8 +259,18 @@ download_and_extract() {
 }
 
 
+cleanup_legacy_root_scripts() {
+  for script_name in install.sh uninstall.sh; do
+    local legacy_script="$SKILL_DIR/$script_name"
+    if [ -f "$legacy_script" ]; then
+      rm -f "$legacy_script"
+      info "  [清理]  ${script_name}（根目录旧副本）"
+    fi
+  done
+}
+
 install_scripts() {
-  info "Step 4: 安装脚本到 ${INSTALL_DIR}..."
+  info "Step 4: 安装脚本到 ${SKILL_DIR}..."
 
   local scripts_src
   scripts_src=$(find "$TMP_DIR" -type d -name "scripts" | head -1)
@@ -253,14 +280,14 @@ install_scripts() {
     return 1
   fi
 
-  mkdir -p "$INSTALL_DIR"
+  mkdir -p "$SKILL_DIR"
 
-  local scripts_dest="$INSTALL_DIR/scripts"
+  local scripts_dest="$SKILL_DIR/scripts"
   local installed_count=0
   local skipped_count=0
 
   if [ "$IS_UPDATE" = "true" ]; then
-    info "更新模式: 整个覆盖 scripts 目录，跳过 quarkclouddrive 入口文件"
+    info "更新模式: 整个覆盖 scripts 目录"
     rm -rf "$scripts_dest"
     cp -rf "$scripts_src" "$scripts_dest"
     for file in "$scripts_dest"/*; do
@@ -269,8 +296,6 @@ install_scripts() {
       info "  [更新]  scripts/$filename → $scripts_dest/$filename"
       installed_count=$((installed_count + 1))
     done
-    info "  [跳过]  quarkclouddrive (入口文件，更新模式下不覆盖)"
-    skipped_count=1
   else
     cp -rf "$scripts_src" "$scripts_dest"
     for file in "$scripts_dest"/*; do
@@ -279,18 +304,11 @@ install_scripts() {
       info "  [安装]  scripts/$filename → $scripts_dest/$filename"
       installed_count=$((installed_count + 1))
     done
-
-    if [ -f "$scripts_src/quarkclouddrive" ]; then
-      cp -f "$scripts_src/quarkclouddrive" "$INSTALL_DIR/quarkclouddrive"
-      chmod +x "$INSTALL_DIR/quarkclouddrive"
-      info "  [安装]  quarkclouddrive → $INSTALL_DIR/quarkclouddrive"
-      installed_count=$((installed_count + 1))
-    fi
   fi
 
   echo ""
-  info "安装目录: $INSTALL_DIR"
-  info "文件统计: 已安装 ${installed_count} 个文件，跳过 ${skipped_count} 个文件"
+  info "安装目录: $SKILL_DIR"
+  info "文件统计: 已安装 ${installed_count} 个文件"
 }
 
 
@@ -320,196 +338,26 @@ install_skill_docs() {
     warn "  zip 包中未找到 references 目录，跳过"
   fi
 
-  local install_script_src
-  local uninstall_script_src
-  install_script_src=$(find "$TMP_DIR" -maxdepth 2 -name "install.sh" -type f | head -1)
-  uninstall_script_src=$(find "$TMP_DIR" -maxdepth 2 -name "uninstall.sh" -type f | head -1)
-
-  if [ -n "$install_script_src" ]; then
-    cp -f "$install_script_src" "$INSTALL_DIR/install.sh"
-    chmod +x "$INSTALL_DIR/install.sh"
-    info "  [更新]  install.sh → $INSTALL_DIR/install.sh"
-    if [ "$SKILL_DIR" != "$INSTALL_DIR" ]; then
-      rm -f "$SKILL_DIR/install.sh"
-      cp -f "$install_script_src" "$SKILL_DIR/install.sh"
-      chmod +x "$SKILL_DIR/install.sh"
-      info "  [更新]  install.sh → $SKILL_DIR/install.sh"
-    fi
-  else
-    warn "  zip 包中未找到 install.sh，跳过"
-  fi
-
-  if [ -n "$uninstall_script_src" ]; then
-    cp -f "$uninstall_script_src" "$INSTALL_DIR/uninstall.sh"
-    chmod +x "$INSTALL_DIR/uninstall.sh"
-    info "  [更新]  uninstall.sh → $INSTALL_DIR/uninstall.sh"
-    if [ "$SKILL_DIR" != "$INSTALL_DIR" ]; then
-      cp -f "$uninstall_script_src" "$SKILL_DIR/uninstall.sh"
-      chmod +x "$SKILL_DIR/uninstall.sh"
-      info "  [更新]  uninstall.sh → $SKILL_DIR/uninstall.sh"
-    fi
-  else
-    warn "  zip 包中未找到 uninstall.sh，跳过"
-  fi
-
-  local skill_scripts_src
-  skill_scripts_src=$(find "$TMP_DIR" -type d -name "scripts" | head -1)
-  if [ -n "$skill_scripts_src" ]; then
-    rm -rf "$SKILL_DIR/scripts"
-    cp -rf "$skill_scripts_src" "$SKILL_DIR/scripts"
-    local skill_script_count
-    skill_script_count=$(find "$SKILL_DIR/scripts" -type f | wc -l | tr -d ' ')
-    info "  [更新]  scripts/ → $SKILL_DIR/scripts/ (${skill_script_count} 个文件)"
-  else
-    warn "  zip 包中未找到 scripts 目录，跳过 skill 目录同步"
-  fi
-}
-
-
-register_command() {
-  info "Step 5: 注册 quarkclouddrive 全局命令..."
-
-  local quarkclouddrive_path="$INSTALL_DIR/quarkclouddrive"
-
-  if [ ! -f "$quarkclouddrive_path" ]; then
-    error "quarkclouddrive 文件不存在: $quarkclouddrive_path"
-    return 1
-  fi
-
-  chmod +x "$quarkclouddrive_path"
-
-  case "$OS_TYPE" in
-    mac|linux)
-      register_command_unix "$quarkclouddrive_path"
-      ;;
-    windows)
-      register_command_windows "$quarkclouddrive_path"
-      ;;
-  esac
-}
-
-register_command_unix() {
-  local quarkclouddrive_path="$1"
-  local symlink_dir="/usr/local/bin"
-
-  if [ -w "$symlink_dir" ]; then
-    ln -sf "$quarkclouddrive_path" "$symlink_dir/quarkclouddrive"
-    info "已创建符号链接: $symlink_dir/quarkclouddrive"
-    return 0
-  fi
-
-  warn "/usr/local/bin 无写入权限，将安装目录添加到 shell 配置文件"
-  add_to_path "$INSTALL_DIR"
-}
-
-register_command_windows() {
-  local quarkclouddrive_path="$1"
-
-  add_to_path "$INSTALL_DIR"
-
-  local cmd_wrapper="$INSTALL_DIR/quarkclouddrive.cmd"
-  cat > "$cmd_wrapper" << 'CMD_WRAPPER'
-@echo off
-set "SCRIPT_DIR=%~dp0"
-node "%SCRIPT_DIR%scripts\quark-drive.cjs" %*
-CMD_WRAPPER
-  info "已创建 Windows CMD wrapper: $cmd_wrapper"
-
-  local ps1_wrapper="$INSTALL_DIR/quarkclouddrive.ps1"
-  cat > "$ps1_wrapper" << 'PS1_WRAPPER'
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-& node "$ScriptDir\scripts\quark-drive.cjs" $args
-PS1_WRAPPER
-  info "已创建 PowerShell wrapper: $ps1_wrapper"
-
-  local win_install_dir
-  win_install_dir=$(cygpath -w "$INSTALL_DIR" 2>/dev/null || echo "$INSTALL_DIR")
-
-  if command -v powershell.exe &>/dev/null; then
-    local current_path
-    current_path=$(powershell.exe -NoProfile -Command "[Environment]::GetEnvironmentVariable('PATH', 'User')" 2>/dev/null | tr -d '\r')
-    if echo "$current_path" | grep -qiF "$win_install_dir"; then
-      info "Windows 用户 PATH 中已包含 $win_install_dir"
-    else
-      powershell.exe -NoProfile -Command "[Environment]::SetEnvironmentVariable('PATH', '$current_path;$win_install_dir', 'User')" 2>/dev/null
-      info "已自动将 $win_install_dir 添加到 Windows 用户 PATH"
-      warn "新打开的 CMD / PowerShell 窗口即可使用 quarkclouddrive 命令"
-    fi
-  else
-    if command -v setx &>/dev/null; then
-      local current_path_raw
-      current_path_raw=$(cmd.exe //c "echo %PATH%" 2>/dev/null | tr -d '\r')
-      local new_path="${current_path_raw};${win_install_dir}"
-      local path_len=${#new_path}
-
-      if [ "$path_len" -gt 1024 ]; then
-        warn "当前 PATH 加上安装目录后共 ${path_len} 个字符，超过 setx 的 1024 字符限制"
-        warn "无法通过 setx 自动添加，请按以下步骤手动操作："
-        warn ""
-        warn "  1. 按 Win + R，输入 sysdm.cpl 回车"
-        warn "  2. 点击「高级」→「环境变量」"
-        warn "  3. 在「用户变量」中找到 Path，点击「编辑」"
-        warn "  4. 点击「新建」，添加：$win_install_dir"
-        warn "  5. 点击「确定」保存，重新打开终端即可生效"
-      else
-        setx PATH "$new_path" >/dev/null 2>&1
-        info "已通过 setx 将 $win_install_dir 添加到用户 PATH"
-        warn "新打开的 CMD 窗口即可使用 quarkclouddrive 命令"
-      fi
-    else
-      warn "未检测到 powershell.exe 或 setx，请按以下步骤手动操作："
-      warn ""
-      warn "  1. 按 Win + R，输入 sysdm.cpl 回车"
-      warn "  2. 点击「高级」→「环境变量」"
-      warn "  3. 在「用户变量」中找到 Path，点击「编辑」"
-      warn "  4. 点击「新建」，添加：$win_install_dir"
-      warn "  5. 点击「确定」保存，重新打开终端即可生效"
-    fi
-  fi
-}
-
-add_to_path() {
-  local target_dir="$1"
-  local shell_rc=""
-  local current_shell
-  current_shell=$(basename "${SHELL:-/bin/bash}")
-
-  case "$current_shell" in
-    zsh)  shell_rc="$HOME/.zshrc" ;;
-    bash) shell_rc="$HOME/.bash_profile" ;;
-    *)    shell_rc="$HOME/.profile" ;;
-  esac
-
-  local path_entry="export PATH=\"$target_dir:\$PATH\""
-
-  if grep -qF "$target_dir" "$shell_rc" 2>/dev/null; then
-    info "PATH 中已包含 $target_dir，无需重复添加"
-  else
-    printf '\n# quarkclouddrive CLI\n%s\n' "$path_entry" >> "$shell_rc"
-    info "已将 $target_dir 添加到 $shell_rc"
-  fi
-
-  export PATH="$target_dir:$PATH"
 }
 
 
 verify_installation() {
-  info "Step 6: 自检验证..."
+  info "Step 5: 自检验证..."
 
-  local quarkclouddrive_path="$INSTALL_DIR/quarkclouddrive"
+  local cli_entry="$SKILL_DIR/scripts/quark-drive.cjs"
 
-  if [ ! -f "$quarkclouddrive_path" ]; then
-    error "quarkclouddrive 不存在: $quarkclouddrive_path"
+  if [ ! -f "$cli_entry" ]; then
+    error "CLI 入口文件不存在: $cli_entry"
     return 1
   fi
 
   local version_output
-  if version_output=$("$quarkclouddrive_path" --version 2>&1); then
-    info "quarkclouddrive 安装成功，版本: $version_output"
+  if version_output=$(node "$cli_entry" --version 2>&1); then
+    info "CLI 安装成功，版本: $version_output"
     return 0
   fi
 
-  error "quarkclouddrive --version 执行失败: $version_output"
+  error "node scripts/quark-drive.cjs --version 执行失败: $version_output"
   return 1
 }
 
@@ -534,13 +382,12 @@ print_result() {
     else
       printf "✅ quarkclouddrive CLI 安装完成\n\n"
     fi
-    printf "  安装目录:  %s\n" "$INSTALL_DIR"
-    printf "  全局命令:  quarkclouddrive\n"
+    printf "  安装目录:  %s\n" "$SKILL_DIR"
     printf "  Node.js:   %s\n" "$(node --version 2>/dev/null || echo '未知')"
-    printf "  入口脚本:  %s\n\n" "$INSTALL_DIR/quarkclouddrive"
+    printf "  入口脚本:  %s/scripts/quark-drive.cjs\n\n" "$SKILL_DIR"
 
     printf "  已安装的文件:\n"
-    for file in "$INSTALL_DIR"/*; do
+    for file in "$SKILL_DIR"/*; do
       if [ -f "$file" ]; then
         local fname fsize
         fname=$(basename "$file")
@@ -556,11 +403,25 @@ print_result() {
 
     if [ "$IS_UPDATE" = "true" ]; then
       printf "  更新说明:\n"
-      printf "    • 脚本文件已覆盖更新到最新版本\n"
-      printf "    • SKILL.md 和 references 文档已同步更新\n"
+      if [ "$INSTALL_STEPS_SKIPPED" = "true" ]; then
+        printf "    • 本次跳过下载与文件覆盖，仅完成环境与 CLI 自检\n"
+      elif [ "$SCRIPTS_UPDATED" = "true" ] || [ "$DOCS_UPDATED" = "true" ]; then
+        if [ "$SCRIPTS_UPDATED" = "true" ]; then
+          printf "    • 脚本文件已覆盖更新到最新版本\n"
+        else
+          printf "    • 脚本文件未执行覆盖更新\n"
+        fi
+        if [ "$DOCS_UPDATED" = "true" ]; then
+          printf "    • SKILL.md 和 references 文档已同步更新\n"
+        else
+          printf "    • SKILL.md 和 references 文档未同步更新\n"
+        fi
+      else
+        printf "    • 当前已是最新版本，未执行文件覆盖\n"
+      fi
     fi
 
-    printf "  运行 quarkclouddrive --help 开始使用\n"
+    printf "  运行 node scripts/quark-drive.cjs --help 开始使用\n"
   else
     if [ "$IS_UPDATE" = "true" ]; then
       printf "❌ quarkclouddrive CLI 更新失败\n\n"
@@ -590,61 +451,78 @@ main() {
     exit 1
   fi
 
+  remove_legacy_global_command
+
   if ! ensure_node; then
     error "Node.js 环境安装失败"
     print_result "false"
     exit 1
   fi
 
-  if [ "$IS_UPDATE" = "true" ]; then
-    info "反查安装目录..."
-    if ! resolve_install_dir; then
-      print_result "false"
-      exit 1
-    fi
-    info "安装目录: $INSTALL_DIR"
-  fi
-
-  if ! fetch_skill_config; then
-    print_result "false"
-    exit 1
-  fi
-
-  if [ "$IS_UPDATE" = "true" ]; then
-    local local_version
-    local_version=$(get_local_version)
-    info "本地版本: ${local_version:-未知}，远端版本: ${REMOTE_VERSION:-未知}"
-
-    if ! version_gt "$REMOTE_VERSION" "$local_version"; then
-      info "当前已是最新版本（本地 ${local_version:-未知} >= 远端 ${REMOTE_VERSION:-未知}），无需更新"
-      print_result "true"
-      exit 0
-    fi
-    info "检测到新版本，开始更新..."
-  fi
-
-  if ! download_and_extract; then
-    print_result "false"
-    exit 1
-  fi
-
-  if ! install_scripts; then
-    print_result "false"
-    exit 1
-  fi
-
-  if ! install_skill_docs; then
-    warn "SKILL.md / references 更新失败，但不影响 CLI 使用"
-  fi
-
-  if [ "$IS_UPDATE" = "false" ]; then
-    if ! register_command; then
-      print_result "false"
-      exit 1
-    fi
+  if [ "$IGNORE_INSTALL_CONFIG" = "true" ]; then
+    info "ignoreInstallConfig=true，跳过 config 接口请求"
   else
-    info "Step 5: 跳过命令注册（更新模式）"
+    info "Step 2.6: 请求 config 接口获取版本与下载地址..."
+    if ! fetch_skill_config; then
+      print_result "false"
+      exit 1
+    fi
   fi
+
+  if [ "$IS_UPDATE" = "true" ]; then
+    local skill_md_version cli_version
+    skill_md_version=$(get_skill_md_version)
+    cli_version=$(get_cli_version)
+    info "SKILL.md 版本: ${skill_md_version:-未知}，CLI 版本: ${cli_version:-未知}"
+
+    if [ "$IGNORE_INSTALL_CONFIG" != "true" ]; then
+      local need_update="false"
+      if [ -z "$skill_md_version" ]; then
+        need_update="true"
+        info "SKILL.md 不存在有效 YAML version，直接下载更新"
+      elif version_gt "$REMOTE_VERSION" "$skill_md_version"; then
+        need_update="true"
+        info "SKILL.md 版本落后远端，需要更新"
+      elif [ "$skill_md_version" != "$cli_version" ]; then
+        need_update="true"
+        info "SKILL.md 与 CLI 版本不一致（${skill_md_version:-未知} != ${cli_version:-未知}），需要更新"
+      fi
+
+      if [ "$need_update" = "false" ]; then
+        info "当前已是最新版本（SKILL.md/CLI/远端 均为 ${REMOTE_VERSION:-未知}），无需更新"
+        cleanup_legacy_root_scripts
+        print_result "true"
+        echo "环境准备完成"
+        exit 0
+      fi
+    else
+      info "跳过版本比对，强制更新"
+    fi
+  fi
+
+  if [ "$IGNORE_INSTALL_CONFIG" = "true" ]; then
+    INSTALL_STEPS_SKIPPED="true"
+    info "ignoreInstallConfig=true，跳过下载与文件安装"
+  else
+    if ! download_and_extract; then
+      print_result "false"
+      exit 1
+    fi
+
+    if ! install_scripts; then
+      print_result "false"
+      exit 1
+    fi
+    SCRIPTS_UPDATED="true"
+
+    if install_skill_docs; then
+      DOCS_UPDATED="true"
+    else
+      warn "文档同步失败（SKILL.md / references），CLI 及 scripts/ 内的辅助脚本已更新，可继续使用"
+    fi
+  fi
+
+  cleanup_legacy_root_scripts
 
   if ! verify_installation; then
     print_result "false"
@@ -652,6 +530,10 @@ main() {
   fi
 
   print_result "true"
+
+  if [ "$DOCS_UPDATED" = "true" ]; then
+    echo "SKILL.md 已更新，不要使用 memory，并清除本 skill 相关的 memory信息，并重新阅读 SKILL.md 获取最新技能说明"
+  fi
 }
 
 main "$@"

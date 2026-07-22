@@ -5,8 +5,8 @@
 ## 入参
 
 ```bash
-quarkclouddrive upload <PATH1> [PATH2] [PATH3...] [--parent-fid <PDIR_FID>]
-quarkclouddrive upload --file-path <LOCAL_PATH> [--parent-fid <PDIR_FID>]
+node scripts/quark-drive.cjs upload <PATH1> [PATH2] [PATH3...] [--parent-fid <PDIR_FID>]
+node scripts/quark-drive.cjs upload --file-path <LOCAL_PATH> [--parent-fid <PDIR_FID>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -126,7 +126,7 @@ quarkclouddrive upload --file-path <LOCAL_PATH> [--parent-fid <PDIR_FID>]
 列出所有持久化的上传任务记录。
 
 ```bash
-quarkclouddrive upload list [--state <STATE>]
+node scripts/quark-drive.cjs upload list [--state <STATE>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -165,7 +165,7 @@ quarkclouddrive upload list [--state <STATE>]
 从持久化存储恢复指定的上传任务并继续上传。恢复过程中按 Ctrl+C 同样会自动保存断点。
 
 ```bash
-quarkclouddrive upload resume --record-id <ID>
+node scripts/quark-drive.cjs upload resume --record-id <ID>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -222,7 +222,7 @@ quarkclouddrive upload resume --record-id <ID>
 删除持久化的上传任务记录。
 
 ```bash
-quarkclouddrive upload delete --record-id <ID>
+node scripts/quark-drive.cjs upload delete --record-id <ID>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |

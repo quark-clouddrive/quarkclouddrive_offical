@@ -56,7 +56,7 @@
 #### 入参
 
 ```bash
-quarkclouddrive organize --query <QUERY>
+node scripts/quark-drive.cjs organize --query <QUERY>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -170,7 +170,7 @@ quarkclouddrive organize --query <QUERY>
 #### 入参
 
 ```bash
-quarkclouddrive organize-copy --task-id <TASK_ID>
+node scripts/quark-drive.cjs organize-copy --task-id <TASK_ID>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -221,7 +221,7 @@ quarkclouddrive organize-copy --task-id <TASK_ID>
 #### 入参
 
 ```bash
-quarkclouddrive organize-move --task-id <TASK_ID>
+node scripts/quark-drive.cjs organize-move --task-id <TASK_ID>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |

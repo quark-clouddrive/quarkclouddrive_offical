@@ -64,7 +64,7 @@
 #### 入参
 
 ```bash
-quarkclouddrive search --keyword <KEYWORD> [--size <NUMBER>] [--category <NUMBER>] [--stdout-only]
+node scripts/quark-drive.cjs search --keyword <KEYWORD> [--size <NUMBER>] [--category <NUMBER>] [--stdout-only]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -176,7 +176,7 @@ artifact 行是纯增量（可按调用方需求选择读或忽略）。
 
 | 维度 | 规则 |
 |------|------|
-| 目录 | `~/.quarkclouddrive/search-results/<userId>/`（`userId` 来自本地 config 登录账号，按用户隔离；未登录时为 `default`） |
+| 目录 | `<skill_dir>/scripts/search-results/<userId>/`（`userId` 来自本地 config 登录账号，按用户隔离；未登录时为 `default`） |
 | 文件名 | `search-<YYYYMMDD-HHMMSS>-<hex6>.jsonl`（秒级时间戳 + 6 字节随机后缀） |
 | 内容 | 每行一个 `BrowseFileItem` JSON，**无 `code/msg/type` 包装** |
 | 生命周期 | 每次 `search` 前自动清理目录下 mtime > 24h 的旧 `.jsonl` / `.jsonl.tmp` |
@@ -197,7 +197,7 @@ artifact 行是纯增量（可按调用方需求选择读或忽略）。
 **bash + jq**：按 category 过滤文档类文件
 
 ```bash
-file_path=$(quarkclouddrive search --keyword 报告 --size 100 --aggregate \
+file_path=$(node scripts/quark-drive.cjs search --keyword 报告 --size 100 --aggregate \
   | jq -r 'select(.type=="artifact") | .data.file_path')
 jq -c 'select(.category==4)' "$file_path"
 ```

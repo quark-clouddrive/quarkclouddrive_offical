@@ -19,13 +19,13 @@
 
 ```bash
 # 单文件
-quarkclouddrive read-file --fid <FID> [--overwrite]
+node scripts/quark-drive.cjs read-file --fid <FID> [--overwrite]
 
 # 多文件（位置参数）
-quarkclouddrive read-file <FID1> <FID2> <FID3> [--overwrite]
+node scripts/quark-drive.cjs read-file <FID1> <FID2> <FID3> [--overwrite]
 
 # 混合（位置参数 + --fid，所有 FID 合并去重）
-quarkclouddrive read-file <FID1> <FID2> --fid <FID3>
+node scripts/quark-drive.cjs read-file <FID1> <FID2> --fid <FID3>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -104,7 +104,7 @@ quarkclouddrive read-file <FID1> <FID2> --fid <FID3>
 #### 入参
 
 ```bash
-quarkclouddrive read-file list [--state <state>]
+node scripts/quark-drive.cjs read-file list [--state <state>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -153,7 +153,7 @@ quarkclouddrive read-file list [--state <state>]
 #### 入参
 
 ```bash
-quarkclouddrive read-file resume --record-id <id>
+node scripts/quark-drive.cjs read-file resume --record-id <id>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -197,7 +197,7 @@ quarkclouddrive read-file resume --record-id <id>
 #### 入参
 
 ```bash
-quarkclouddrive read-file delete --record-id <id>
+node scripts/quark-drive.cjs read-file delete --record-id <id>
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |

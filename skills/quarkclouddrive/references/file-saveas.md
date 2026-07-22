@@ -4,7 +4,7 @@
 ## 入参
 
 ```bash
-quarkclouddrive saveas --url <URL> [--fid-list <FIDS>] [--to-pdir-path <PATH>] [--passcode <CODE>]
+node scripts/quark-drive.cjs saveas --url <URL> [--fid-list <FIDS>] [--to-pdir-path <PATH>] [--passcode <CODE>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
@@ -28,22 +28,22 @@ quarkclouddrive saveas --url <URL> [--fid-list <FIDS>] [--to-pdir-path <PATH>] [
 
 ```bash
 # 最简用法：转存整个分享链接（默认行为，无需指定目录参数）
-quarkclouddrive saveas --url "https://pan.quark.cn/s/abc123"
+node scripts/quark-drive.cjs saveas --url "https://pan.quark.cn/s/abc123"
 
 # 转存到指定路径
-quarkclouddrive saveas --url "https://pan.quark.cn/s/abc123" --to-pdir-path "/我的文件/下载"
+node scripts/quark-drive.cjs saveas --url "https://pan.quark.cn/s/abc123" --to-pdir-path "/我的文件/下载"
 
 # 转存指定文件（不指定目录）
-quarkclouddrive saveas --url "https://pan.quark.cn/s/abc123" --fid-list fid1,fid2
+node scripts/quark-drive.cjs saveas --url "https://pan.quark.cn/s/abc123" --fid-list fid1,fid2
 
 # 带提取码的私密分享链接（提取码在 URL 中）
-quarkclouddrive saveas --url "https://pan.quark.cn/s/abc123?pwd=abcd"
+node scripts/quark-drive.cjs saveas --url "https://pan.quark.cn/s/abc123?pwd=abcd"
 
 # 带提取码的私密分享链接（通过 --passcode 参数传入）
-quarkclouddrive saveas --url "https://pan.quark.cn/s/abc123" --passcode "abcd"
+node scripts/quark-drive.cjs saveas --url "https://pan.quark.cn/s/abc123" --passcode "abcd"
 
 # 显式使用 --save-all（效果等同于不传）
-quarkclouddrive saveas --url "https://pan.quark.cn/s/abc123" --save-all
+node scripts/quark-drive.cjs saveas --url "https://pan.quark.cn/s/abc123" --save-all
 ```
 
 ## 成功出参
