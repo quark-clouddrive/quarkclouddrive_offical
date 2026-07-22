@@ -1,6 +1,6 @@
 ---
 name: quarkclouddrive
-version: v1.0.9
+version: 1.0.9
 description: 夸克网盘官方(Quark Drive)Skill，用于文件上传/下载（支持断点续传）、文件分享与转存、网盘文件搜索、相册整理、AI助手（文件总结与知识问答，支持万级文件）。当用户需要操作夸克网盘文件或进行身份验证时使用。
 metadata:
   openclaw:
