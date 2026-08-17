@@ -10,7 +10,7 @@ fi
 
 SKILL_CONFIG_URL="${SKILL_OPEN_API_HOST}/agent/v1/skill_config"
 
-IGNORE_INSTALL_CONFIG="false"
+IGNORE_INSTALL_CONFIG="true"
 if [ -z "$IGNORE_INSTALL_CONFIG" ] || [[ "$IGNORE_INSTALL_CONFIG" == __*__ ]]; then
   IGNORE_INSTALL_CONFIG="false"
 fi

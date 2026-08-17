@@ -116,6 +116,7 @@ node scripts/quark-drive.cjs search --keyword <KEYWORD> [--size <NUMBER>] [--cat
 | `data.total` | number | 搜索结果总数（服务端返回的实际匹配数量） |
 | `data.file_list` | array | `BrowseFileItem` 数组，wild 模式**最多输出前 5 条预览**，完整结果见 artifact 落盘文件 |
 | `data.check_all_link` | string | **wild 模式特有字段**。当结果多于 5 条（即有记录未在 `file_list` 展示）时提供，指向在网盘中查看全部搜索结果的地址；agent 须在列表展示后透出该链接。结果不超过 5 条时可能不返回该字段 |
+| `data.browse_hint` | string | **wild 模式特有字段**。与 `check_all_link` 同时出现，提供在浏览器中查看的提示文案。当该字段存在时，agent **必须**将其文案展示给用户 |
 
 无结果时 `data.total` 为 `0`，`data.file_list` 为空数组 `[]`。
 
@@ -131,7 +132,11 @@ node scripts/quark-drive.cjs search --keyword <KEYWORD> [--size <NUMBER>] [--cat
 >
 > **落盘文件何时读**：artifact 落盘文件**不用于**搜索结果展示，仅在用户**连续发起新指令**、需对搜索到的全部文件执行后续操作（share / download / organize 等）时才读取以获取全量 FID。例：用户先"搜索 xxx 图片"（仅展示 `file_list`），再说"分享这些图片"——此时才从落盘文件读取全量结果。
 >
-> **透出查看全部地址（wild 模式必做）**：列表展示完毕后，当 `data.check_all_link` 存在且非空时，agent 必须透出固定文案「**点击查看全部搜索结果：{check_all_link}**」（`{check_all_link}` 替换为实际 URL，并以可点击链接形式展示，如 Markdown `[点击查看全部搜索结果](check_all_link)`）。`check_all_link` 为空时省略该提示。
+> **透出查看全部地址与 browse_hint（wild 模式必做）**：列表展示完毕后，当 `data.check_all_link` 存在且非空时，agent **必须**：
+> 1. 将该链接以可点击形式展示给用户（如 Markdown `[点击查看全部搜索结果](check_all_link)`）。
+> 2. 同时**完整展示该链接的 URL 原文**，方便用户手动复制。
+> 3. 如果结果中包含 `browse_hint` 字段（与 `check_all_link` 同时出现），**必须**原样展示 `browse_hint` 的文案给用户（如「当前页面可能无法保持网盘登录状态。建议复制链接，在浏览器中打开，以获得更稳定、完整的浏览体验。」），**禁止省略或改写**。
+> `check_all_link` 为空或不存在时省略该提示。
 
 > **搜索后操作强制流程**：仅当用户在搜索结果呈现后连续发起新指令、要对搜索到的文件执行后续操作（share、download、organize 等）时，才需要读取落盘文件；展示搜索结果阶段不需要读。触发后必须按以下步骤执行：
 > 1. 从 search 的 stdout 中提取 `type:"artifact"` 行的 `data.file_path`
