@@ -39,7 +39,7 @@
 
 ### 搜索文件（search）
 
-在用户网盘中搜索文件。不支持分页，一次最多返回 100 条结果。
+在用户网盘中搜索文件。不支持分页，一次最多返回 3000 条结果。
 
 #### 适用与分流
 
@@ -70,7 +70,7 @@ node scripts/quark-drive.cjs search --keyword <KEYWORD> [--size <NUMBER>] [--cat
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `--keyword <string>` | string | 必填 | — | 搜索关键词（最大 50 字符） |
-| `--size <number>` | number | 选填 | `100` | 返回结果数量（1-100），完整结果请查看落盘 artifact |
+| `--size <number>` | number | 选填 | `3000` | 返回结果数量（1-3000），完整结果请查看落盘 artifact |
 | `--category <number>` | number | 选填 | — | 按分类过滤（0:文件夹 1:视频 2:音频 3:图片 4:文档 5:种子 6:其他 7:压缩包 8:应用） |
 | `--stdout-only` | string | 选填 | — | 仅输出到标准输出（用于中间步骤，搜索结果不作为最终结果展示） |
 
@@ -202,7 +202,7 @@ artifact 行是纯增量（可按调用方需求选择读或忽略）。
 **bash + jq**：按 category 过滤文档类文件
 
 ```bash
-file_path=$(node scripts/quark-drive.cjs search --keyword 报告 --size 100 --aggregate \
+file_path=$(node scripts/quark-drive.cjs search --keyword 报告 --size 3000 --aggregate \
   | jq -r 'select(.type=="artifact") | .data.file_path')
 jq -c 'select(.category==4)' "$file_path"
 ```
@@ -234,14 +234,14 @@ for await (const line of rl) {
 | 错误码 | 默认错误信息 | 触发场景 |
 |--------|-------------|---------|
 | -1301 | 文件浏览器实例不存在 | SDK 文件浏览器初始化失败 |
-| -1302 | --size 必须为 1-100 的正整数 | `--size` 参数不是 1-100 的正整数 |
+| -1302 | --size 必须为 1-3000 的正整数 | `--size` 参数不是 1-3000 的正整数 |
 | -1303 | 搜索操作失败 | SDK `searchFiles` 返回 `status !== 0`，`msg` 附带 SDK 返回的 `error_info` |
 | -1304 | --category 必须为 0-8 的整数 | `--category` 参数不是 0-8 的整数 |
 
 **失败示例**：
 
 ```jsonl
-{"code":-1302,"msg":"--size 必须为 1-100 的正整数","data":{},"action":"search","type":"result"}
+{"code":-1302,"msg":"--size 必须为 1-3000 的正整数","data":{},"action":"search","type":"result"}
 ```
 
 ```jsonl
