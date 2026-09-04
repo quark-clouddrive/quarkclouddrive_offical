@@ -11,14 +11,15 @@
   code?: number;       // 状态码，0 为成功，负数为 CLI 错误码（progress 类型不含 code）
   msg: string;         // 状态描述
   action: string;      // 命令名称（如 "upload"、"download"）
-  type: string; // 输出类型："result" | "progress" | "list"
+  type: string; // 输出类型："result" | "progress" | "list" | "artifact"
   data: object;        // 业务数据
 }
 ```
 
-- **`type: "result"`** — 命令最终结果，每个命令的最后一行
+- **`type: "result"`** — 命令业务结果；不生成 Artifact 的命令以该行结束
 - **`type: "progress"`** — 长任务（上传）的中间进度
 - **`type: "list"`** — 列表条目（如 browse 的文件列表、upload 的失败任务）
+- **`type: "artifact"`** — 完整查询结果文件；Search 与 `browse --all` 成功时在 `result` 后输出，结构和消费规则见 [file-search.md](file-search.md)
 
 **失败处理**：命令失败时通过 `CliExitError` 抛出（进程退出码 1），顶层 `quark-drive.ts` 的 catch 捕获后输出一行 `IApiType` 格式的错误结果到 stdout：
 
@@ -38,11 +39,36 @@
 
 网盘中每个目录都有一个唯一的目录 FID（字符串类型）。特殊值 `"0"` 代表**根目录**（网盘最顶层目录）。
 
-> **重要约束（面向 AI agent）**：`upload` 和 `saveas` 命令的目标目录参数（`--parent-fid`、`--to-pdir-fid`、`--to-pdir-path`）均为**选填参数**。当用户没有明确指定保存到哪个目录时，**严禁自行补充 `"0"` 或任何目录参数**，必须省略该参数，让 CLI 使用内部默认行为。只有当用户明确说"保存到根目录"或提供了具体的目录 FID/路径时，才传入对应参数。
+> **重要约束（面向 AI agent）**：`upload` 和 `saveas` 命令的目标目录参数（`--parent-fid`、`--to-pdir-fid`、`--to-pdir-path`）均为**选填参数**。当用户没有明确指定保存到哪个目录时，**严禁自行补充 `"0"` 或任何目录参数**，必须省略该参数，让 CLI 使用内部默认行为。只有当用户明确说"保存到根目录"或提供了具体的目录 FID/路径时，才传入对应参数。唯一例外是用户查看分享更新后只选择其中部分文件转存：必须按 `file-saveas.md` 的流程调用 `get-share-saved-dir`；成功返回 `data.pdir_fid` 时传给 `saveas --to-pdir-fid`，无返回或失败时省略目录参数直接调用 `saveas`。
 
 ---
 
 ## 命令
+
+> 批量重命名与整批撤销使用 `rename` / `rename-revert`，详见 [file-rename.md](file-rename.md)。
+
+### 浏览文件夹直接子项（browse）
+
+`browse` 调用 `file/list`，只列出指定文件夹的直接子项，不递归，也不支持关键词搜索。Search 与 Browse 的选择路由、共同 Artifact、FileVO 和聚合去重规则见 [file-search.md](file-search.md)。
+
+```bash
+node scripts/quark-drive.cjs browse \
+  [--parent-fid "<FOLDER_FID>"] \
+  [--page-size <1-100>] \
+  [--all]
+```
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `--parent-fid` | `0` | 目标文件夹 FID，`0` 表示根目录 |
+| `--page-size` | `100` | 单页大小，范围 1～100 |
+| `--all` | 关闭 | 自动获取全部直接子项并生成完整 Artifact |
+
+- 不传 `--all` 时只查询一页：stdout 先为每个条目输出一行 `type:"list"`，最后输出一行 `type:"result"`；`result.data.total` 是本页条数，`result.data.hasMore` 表示是否还有下一页，不生成 Artifact。
+- 传入 `--all` 时按 cursor 获取全部直接子项：stdout 输出有界预览 `result` 和完整 JSONL `artifact`；Artifact 的结构与消费规则见 [file-search.md](file-search.md)。
+- `--all` 分页遵循服务端 `metadata.tq_gap` 控制下一页请求间隔；缺失或无效时按 0ms。`file_list` 缺失或为 `null` 时按空数组处理，空页或只有重复项的页继续按分页状态处理；其他非数组值仍视为分页协议错误。cursor 循环、任一页请求失败或 Artifact 写入失败时命令整体失败，不发布本次 Artifact。
+
+---
 
 ### 创建文件夹（create-folder）
 
@@ -161,5 +187,3 @@ node scripts/quark-drive.cjs move <FID1> [FID2...] --target-fid <TARGET_FID>
 ```jsonl
 {"code":-504,"msg":"target folder not found","data":{},"action":"move","type":"result"}
 ```
-
-
