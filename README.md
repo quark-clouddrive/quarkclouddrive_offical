@@ -138,21 +138,23 @@ npx skills add https://github.com/quark-clouddrive/quarkclouddrive_offical/skill
 
 ```plaintext
 quarkclouddrive_offical/
-├── SKILL.md                        # Skill 定义（Agent 行为规范）
-├── install.sh                      # 安装 / 升级脚本
-├── uninstall.sh                    # 卸载脚本
 ├── LICENSE                         # Apache License 2.0
 ├── README.md                       # 项目说明
-└── references/                     # 参考文档
-    ├── auth.md                     # 认证与账号管理
-    ├── assistant.md                # AI 助手（文件总结与知识问答）
-    ├── file-ops.md                 # 文件操作（创建文件夹、移动、下载）
-    ├── file-organize.md            # 相册整理
-    ├── file-read.md                # 文件读取
-    ├── file-saveas.md              # 转存分享链接
-    ├── file-search.md              # 文件检索
-    ├── file-share.md               # 文件分享
-    └── file-upload.md              # 文件上传
+└── skills/                         # 安装 URL 末尾的 /skills 指向这里
+    └── quarkclouddrive/            # Skill 名，对应安装命令的 --skill 参数
+        ├── SKILL.md                # Skill 定义（Agent 行为规范）
+        ├── install.sh              # 安装 / 升级脚本
+        ├── uninstall.sh            # 卸载脚本
+        └── references/             # 参考文档
+            ├── auth.md             # 认证与账号管理
+            ├── assistant.md        # AI 助手（文件总结与知识问答）
+            ├── file-ops.md         # 文件操作（创建文件夹、移动、下载）
+            ├── file-organize.md    # 相册整理
+            ├── file-read.md        # 文件读取
+            ├── file-saveas.md      # 转存分享链接
+            ├── file-search.md      # 文件检索
+            ├── file-share.md       # 文件分享
+            └── file-upload.md      # 文件上传
 
 ```
 
