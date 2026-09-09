@@ -131,7 +131,7 @@ CLI 兼容与展示字段：
 | `obj_category` / `file` / `path` | 既有服务端条件字段，按原值使用；`path` 与 `full_path` 不得混为一谈 |
 | `big_thumbnail` / `check_link` | Wild 展示字段，不参与文件身份判断 |
 
-候选条目中实际存在且语义明确的 FileVO 元数据，可按用户明确的规则用于筛选、分组、排序或生成新名称。`content_hash` 即使相同也不得用于判断两个候选是同一文件或自动去重；跨 Artifact 去重仍只遵守下方 FID 规则。`parent_fid` 是目录 ID，不得当作可读目录名；`full_path` 和 `file_local_path` 只是服务端元数据，不代表 Agent 可访问的本机路径。字段结构、时间单位或含义无法可靠解释时不得猜测。默认预览和最终话术不得主动复述 `content_hash`、合辑 ID、完整路径或本地存储路径；用户明确要求核对依据时也只展示完成核对所需的信息。
+候选条目中实际存在且语义明确的 FileVO 元数据，可按用户明确的规则或 [file-rename.md](file-rename.md) 的模糊命名字段路由，用于筛选、分组、排序或生成新名称。`content_hash` 即使相同也不得用于判断两个候选是同一文件或自动去重；跨 Artifact 去重仍只遵守下方 FID 规则。`parent_fid` 是目录 ID，不得当作可读目录名；`full_path` 和 `file_local_path` 只是服务端元数据，不代表 Agent 可访问的本机路径。字段结构、时间单位或含义无法可靠解释时不得猜测。默认预览和最终话术不得主动复述 `content_hash`、合辑 ID、完整路径或本地存储路径；用户明确要求核对依据时也只展示完成核对所需的信息。
 
 ## 聚合与 FID 去重
 
