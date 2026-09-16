@@ -274,3 +274,15 @@ bash scripts/uninstall.sh
 所有命令都可能输出未授权错误。当 stdout 输出的 NDJSON 中 `code` 为非零负数且 `msg` 包含"未授权"、"认证"、"token"等关键词时，表示**用户当前未授权或授权已过期**。
 
 > **未授权处理**：检测到未授权输出后，agent 禁止重复尝试原命令，应自动调用 `login` 命令引导用户完成登录授权，登录成功后再重新执行原命令。授权流程、取消授权、卸载、查看用户信息、自更新详见 [references/auth.md](references/auth.md)。
+
+## 批量编排脚本（全盘查重 / 归档）
+
+CLI 目前是单点命令：`browse` 一次只看一个文件夹（不递归）、`move` 单次≤100 且任一 FID 失效会整批失败、**尚无查重命令**。针对"全盘查重 / 分类归档 / 整理大量文件"这类批量场景，本目录提供了配套脚本（`scripts/pipeline/`，纯编排，只调用官方允许的 `browse`/`move`/`create-folder`）：
+
+| 脚本 | 用途 |
+|---|---|
+| `scan.js` | 递归全盘扫描 → `all-items.json`（可指定 `--root-fid`/`--max-depth`） |
+| `dedup.js` | 按文件名+大小查重，生成"每组至少保留一份"的安全移动计划 |
+| `run-move-plan.js` | 执行移动计划，批量失败自动逐个降级 |
+
+用法与约束见 `scripts/pipeline/README.md`。待删除内容统一移入 `_待清理` 隔离夹，最终删除由用户在夸克 App 完成（CLI 暂无删除 API）。
