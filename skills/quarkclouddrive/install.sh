@@ -35,6 +35,7 @@ fi
 SCRIPTS_UPDATED="false"
 DOCS_UPDATED="false"
 INSTALL_STEPS_SKIPPED="false"
+PREVIOUS_CLI_VERSION=""
 
 
 info()  { printf "[info]  %s\n" "$*"; }
@@ -200,6 +201,18 @@ version_gt() {
   [ "$greater" = "$1" ]
 }
 
+print_install_result() {
+  local current_version updated="false"
+  current_version=$(get_cli_version)
+  if [ "$IS_UPDATE" = "true" ] && [ "$SCRIPTS_UPDATED" = "true" ] &&
+     [ "$DOCS_UPDATED" = "true" ] && [ -n "$PREVIOUS_CLI_VERSION" ] &&
+     version_gt "$current_version" "$PREVIOUS_CLI_VERSION"; then
+    updated="true"
+  fi
+  printf '{"type":"install_result","success":true,"updated":%s,"from_version":"%s","to_version":"%s"}\n' \
+    "$updated" "$PREVIOUS_CLI_VERSION" "$current_version"
+}
+
 fetch_skill_config() {
   info "请求 skill 配置接口获取最新版本与下载地址..."
 
@@ -319,23 +332,25 @@ install_skill_docs() {
   skill_md_src=$(find "$TMP_DIR" -maxdepth 2 -name "SKILL.md" -type f | head -1)
 
   if [ -n "$skill_md_src" ]; then
-    cp -f "$skill_md_src" "$SKILL_DIR/SKILL.md"
+    cp -f "$skill_md_src" "$SKILL_DIR/SKILL.md" || return 1
     info "  [更新]  SKILL.md → $SKILL_DIR/SKILL.md"
   else
     warn "  zip 包中未找到 SKILL.md，跳过"
+    return 1
   fi
 
   local refs_src
   refs_src=$(find "$TMP_DIR" -maxdepth 2 -type d -name "references" | head -1)
 
   if [ -n "$refs_src" ]; then
-    rm -rf "$SKILL_DIR/references"
-    cp -rf "$refs_src" "$SKILL_DIR/references"
+    rm -rf "$SKILL_DIR/references" || return 1
+    cp -rf "$refs_src" "$SKILL_DIR/references" || return 1
     local ref_count
     ref_count=$(find "$SKILL_DIR/references" -type f | wc -l | tr -d ' ')
     info "  [更新]  references/ → $SKILL_DIR/references/ (${ref_count} 个文件)"
   else
     warn "  zip 包中未找到 references 目录，跳过"
+    return 1
   fi
 
 }
@@ -473,6 +488,7 @@ main() {
     local skill_md_version cli_version
     skill_md_version=$(get_skill_md_version)
     cli_version=$(get_cli_version)
+    PREVIOUS_CLI_VERSION="$cli_version"
     info "SKILL.md 版本: ${skill_md_version:-未知}，CLI 版本: ${cli_version:-未知}"
 
     if [ "$IGNORE_INSTALL_CONFIG" != "true" ]; then
@@ -493,6 +509,7 @@ main() {
         cleanup_legacy_root_scripts
         print_result "true"
         echo "环境准备完成"
+        print_install_result
         exit 0
       fi
     else
@@ -534,6 +551,7 @@ main() {
   if [ "$DOCS_UPDATED" = "true" ]; then
     echo "SKILL.md 已更新，不要使用 memory，并清除本 skill 相关的 memory信息，并重新阅读 SKILL.md 获取最新技能说明"
   fi
+  print_install_result
 }
 
 main "$@"

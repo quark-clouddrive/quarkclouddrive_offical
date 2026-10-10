@@ -1,5 +1,13 @@
 # 上传（upload）
 
+> **升级提示展示**：本文件内所有命令及子命令成功时，若 `result.notice.kind` 为 `"skill_updated"`，先按原规则展示业务结果，再另起一段完整原样展示 `result.notice.text`。不展示字段名，不改写提示，也不将提示并入业务 `msg`。每次是否携带 `--skill-updated`，按 [SKILL.md](../SKILL.md) 中 `install.sh` 的实际返回结果判断。 升级提示和会员提示中的 URL 与搜索结果表格“查看链接”列采用相同展示规则：优先使用 Markdown 渲染为可点击的蓝链（升级提示使用 `[查看会员权益介绍](URL)`，普通会员提示使用 `[去升级](URL)`）；若当前环境不支持可点击链接，则直接展示完整原始 URL，方便用户复制访问。禁止将链接放入代码块或行内代码，禁止截断、改写 URL，或只展示无法点击且不含地址的“查看会员权益介绍”/“去升级”文字。此降级仅改变链接展示形式，提示文案和 URL 原值保持不变；未返回链接时仅展示原有文案，不自行补造地址。
+
+**会员提示展示（upload / upload resume）**：最终 `result.notice.kind` 为 `"member_hint"` 且 `notice.text` 非空时，先展示业务结果或错误，再另起一段原样展示该文本，保留可点击的 `[去升级](URL)`。不展示字段名，不将提示拼入 `msg`，不根据错误码或容量值自行生成会员话术。`list`、`progress` 不重复展示最终提醒；`notice.text` 为空或未返回 notice 时，不补造文案或地址。
+
+多文件上传使用本次命令最后收到的文件终态服务端响应，文案与链接来自同一份响应。最后响应缺字段时不回填此前提示；本地文件错误、取消和网络异常没有服务端快照，不覆盖已有服务端快照。任一文件失败仍按失败展示，同时保留已成功文件明细，不自动重新上传整批文件。`32003` 表示主盘空间不足，`32004` 表示单文件大小超限；成功后的容量预警不改变上传成功状态。
+
+成功结果满足升级提示条件时，只展示最终 `skill_updated` notice；失败不追加升级提示。续传只使用本次响应，不沿用历史任务提示。
+
 上传文件或文件夹到网盘指定目录。支持同时传入多个路径，每个路径可以是文件或文件夹，SDK 自动递归上传文件夹内容。
 
 ## 入参
@@ -51,7 +59,7 @@ node scripts/quark-drive.cjs upload --file-path <LOCAL_PATH> [--parent-fid <PDIR
 |------|------|------|
 | `data.recordId` | string | 失败任务的记录 ID |
 
-**result 行**：所有子任务完成后输出。如果全部成功，`code: 0`；如果存在失败任务，`code: -204`（由顶层 catch 捕获 `CliExitError` 输出）。
+**result 行**：所有子任务完成后输出。如果全部成功，`code: 0`；如果存在失败任务，优先透传服务端错误码，缺失时使用 `-204`。失败 result 的 `data.fids`、`data.successCount` 和 `data.failedCount` 保留已成功文件及失败数量。
 
 **全部成功时 result 行 data 字段**：
 
@@ -82,12 +90,12 @@ node scripts/quark-drive.cjs upload --file-path <LOCAL_PATH> [--parent-fid <PDIR
 {"code":0,"msg":"成功","data":{"fileNames":["test.txt"],"fileCount":1,"totalSize":256,"fids":["844db92f066f4537b59ff668d1d75144"],"successCount":1,"instantUpload":false,"instantUploadCount":0,"fullPath":"夸克网盘/我的文档"},"action":"upload","type":"result"}
 ```
 
-**部分失败示例**（存在失败子任务时，`checkAllTasksDone` 通过 `state.reject(CliExitError)` 抛出异常，`ctx.finish()` 不会执行，最终由顶层 catch 输出 `-204` 错误 result 行）：
+**部分失败示例**（保留已成功文件，最终 result 透传服务端错误码及当前提示）：
 
 ```jsonl
 {"code":0,"msg":"上传成功","data":{"recordId":"rec_1","fileId":"file_1","fileName":"a.txt","fileSize":1024,"instantUpload":true},"action":"upload","type":"list"}
 {"code":31003,"msg":"file hash conflict","data":{"recordId":"rec_abc123"},"action":"upload","type":"list"}
-{"code":-204,"msg":"上传操作失败, 失败任务数量: 1","data":{},"action":"upload","type":"result"}
+{"code":31003,"msg":"file hash conflict","data":{"fids":["file_1"],"successCount":1,"failedCount":1},"action":"upload","type":"result"}
 ```
 
 ## 失败出参
@@ -261,3 +269,9 @@ node scripts/quark-drive.cjs upload delete --record-id <ID>
 ```jsonl
 {"code":-205,"msg":"未找到任务: abc123","data":{},"action":"upload-delete","type":"result"}
 ```
+
+### 上传会员提示
+
+`upload` 与 `upload resume` 将上传接口返回的 `member_hint`、`metadata.skill_vip_url` 转换为最终 `result.notice.text`，覆盖预上传秒传、update_hash 秒传、普通上传完成及服务端失败。文案与链接取自同一份文件终态响应。批量上传按本次最后收到的终态服务端响应选择提示，不受持久化回调顺序影响；最后响应缺少会员字段时不回填旧提示。业务失败与提示选择独立汇总，并保留已成功文件。
+
+业务 `data` 和逐文件 `list` 不重复输出会员字段或 metadata。缺少文案和链接不生成会员 notice，明确空文案保留空字符串；Wild 成功升级提示优先覆盖会员 notice，失败不追加升级提示。Wild 下 Agent 在业务结果或错误说明后另起一段原样展示非空 `notice.text`，保留可点击的 `[去升级](URL)` 链接；环境不支持时展示完整原始 URL。

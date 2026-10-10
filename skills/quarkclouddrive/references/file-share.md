@@ -102,13 +102,15 @@ node scripts/quark-drive.cjs share <FID1> [FID2...] [--title <TITLE>] [--url-typ
 #### 入参
 
 ```bash
-node scripts/quark-drive.cjs get-share-update-list [--page <NUMBER>] [--size <NUMBER>]
+node scripts/quark-drive.cjs get-share-update-list [--page <正整数>] [--size <1-50的正整数>]
 ```
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | `--page <number>` | number | 选填 | `1` | 页码，从 1 开始；Agent 展示更新摘要时不传该参数，固定查询第 1 页 |
 | `--size <number>` | number | 选填 | `50` | 每页条目数，范围 `1-50` |
+
+**分页大小约束（必须遵守）**：默认省略 `--size`，由 CLI 使用 `50`。只有需要调整单页数量时才传 `1` 到 `50` 的十进制正整数字面量；禁止传 `100`、`0`、负数、小数、科学计数法、带空格的值或 `all`。`--size` 是单页条目数，不是结果总量上限；不要套用 `search` 的默认值 `100`。用户要求更多结果时也不得扩大到 50 以上，应按本命令的分页及展示规则处理。
 
 #### 成功出参
 
@@ -225,7 +227,7 @@ node scripts/quark-drive.cjs get-share-update-files --url "https://pan.quark.cn/
 | 文件大小 | `files[].size` | 将字节数换算为人类可读单位（B、KB、MB、GB、TB），例如 `1572864` 展示为“1.5 MB”；文件夹可展示为“—” |
 | 文件类型 | `files[].file_type` | 直接使用该中文字段展示；CLI 已完成类型解析，无需再次映射或转换 |
 
-更新文件表格展示完成后，必须再将返回结果的 `msg` 字段作为独立内容完整、原样地展示给用户；表格和 `msg` 都是必需结果，禁止相互替代。有更新时，`msg` 已包含新增数量、分享链接和是否转存的询问；没有更新时，不展示空表格，只原样展示包含无更新说明的 `msg`。
+更新文件表格展示完成后，必须再将返回结果的 `msg` 字段作为独立内容完整、原样地展示给用户；表格和 `msg` 都是必需结果，禁止相互替代。有更新时，`msg` 已包含新增数量、分享链接和是否转存的询问；没有更新时，不展示空表格，业务结果原样展示包含无更新说明的 `msg`；若返回升级提示，再独立追加 `notice.text`。
 
 禁止对 `msg` 进行概括、扩写、同义改写，禁止将其中的分享链接转换为 Markdown 链接，禁止给 `msg` 添加任何前后缀。用户明确要求查看更多并触发下一页查询时，每次成功结果仍须按相同规则展示该页文件表格，并完整原样展示该次返回的 `msg`。
 
@@ -417,3 +419,5 @@ node scripts/quark-drive.cjs share-search --url <URL> --keyword <KEYWORD> [--pag
 ```jsonl
 {"code":-1004,"msg":"无效的分享链接 URL: invalid-url","data":{},"action":"share-search","type":"result"}
 ```
+
+> 统一升级提示展示（仅 Wild）：成功结果存在顶层 `notice.kind: "skill_updated"` 时，按 [SKILL.md](../SKILL.md) 中执行 `scripts/install.sh` 时的升级提示规则，在完整展示业务结果后独立原样追加 `notice.text`；不修改或替代原 `msg`。 升级提示和会员提示中的 URL 与搜索结果表格“查看链接”列采用相同展示规则：优先使用 Markdown 渲染为可点击的蓝链（升级提示使用 `[查看会员权益介绍](URL)`，普通会员提示使用 `[去升级](URL)`）；若当前环境不支持可点击链接，则直接展示完整原始 URL，方便用户复制访问。禁止将链接放入代码块或行内代码，禁止截断、改写 URL，或只展示无法点击且不含地址的“查看会员权益介绍”/“去升级”文字。此降级仅改变链接展示形式，提示文案和 URL 原值保持不变；未返回链接时仅展示原有文案，不自行补造地址。
