@@ -356,6 +356,24 @@ install_skill_docs() {
 }
 
 
+apply_kimi_code_support() {
+  if [ -z "${KIMI_CODE_HOME:-}" ] && [ -z "${KIMI_CODE_REGION_MARKER:-}" ] &&
+     [ "${KIMI_CODE_IDENTITY_SLUG:-}" != "kimi-code" ] && [[ "$SKILL_DIR" != *"/.kimi-code/skills/"* ]]; then
+    info "非 Kimi Code 环境，跳过 Kimi Code Agent 适配"
+    return 0
+  fi
+
+  local patch_script="$SKILL_DIR/patches/kimi-code-agent-detection.cjs"
+
+  if [ ! -f "$patch_script" ]; then
+    error "Kimi Code Agent 适配脚本不存在: $patch_script"
+    return 1
+  fi
+
+  node "$patch_script" "$SKILL_DIR/scripts/quark-drive.cjs"
+}
+
+
 verify_installation() {
   info "Step 5: 自检验证..."
 
@@ -363,6 +381,11 @@ verify_installation() {
 
   if [ ! -f "$cli_entry" ]; then
     error "CLI 入口文件不存在: $cli_entry"
+    return 1
+  fi
+
+  if ! apply_kimi_code_support; then
+    error "Kimi Code Agent 适配失败"
     return 1
   fi
 
@@ -506,6 +529,10 @@ main() {
 
       if [ "$need_update" = "false" ]; then
         info "当前已是最新版本（SKILL.md/CLI/远端 均为 ${REMOTE_VERSION:-未知}），无需更新"
+        if ! verify_installation; then
+          print_result "false"
+          exit 1
+        fi
         cleanup_legacy_root_scripts
         print_result "true"
         echo "环境准备完成"
